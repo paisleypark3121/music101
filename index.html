@@ -68,11 +68,15 @@
     }
 
     .white-key.active {
-      background: #cce5ff;
+        background: #ffcc00;
+        color: black;
+        box-shadow: 0 0 8px #ffcc00;
     }
 
     .black-key.active {
-      background: #555;
+        background: #ffcc00;
+        color: black;
+        box-shadow: 0 0 8px #ffcc00;
     }
 
     #chordNotes {
@@ -163,9 +167,10 @@
         sampler.triggerAttackRelease(note, "2n");
         const el = document.querySelector(`[data-note='${note}']`);
         if (el) {
-        el.classList.add("active");
-        setTimeout(() => el.classList.remove("active"), 1000);
+            el.classList.add("active");
+            setTimeout(() => el.classList.remove("active"), 1000);
         }
+        document.getElementById("chordNotes").textContent = `Note: ${note}`;
     }
 
     const semitoneMap = {
