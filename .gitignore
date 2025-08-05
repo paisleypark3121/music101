@@ -1,0 +1,9 @@
+.env
+.*
+__pycache__
+
+# Except .gitignore itself
+!.gitignore
+
+# Except .gitkeep files
+!.gitkeep
