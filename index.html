@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Pianoforte Interattivo</title>
+  <script src="https://unpkg.com/tone@14.8.49/build/Tone.js"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: 20px;
+    }
+
+    .controls {
+      margin-bottom: 20px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    #startAudio, #playChord {
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+
+    .piano {
+      display: flex;
+      position: relative;
+      height: 200px;
+    }
+
+    .key-wrapper {
+      position: relative;
+    }
+
+    .white-key {
+      width: 40px;
+      height: 200px;
+      background: white;
+      border: 1px solid #000;
+      z-index: 1;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      font-size: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .black-key {
+      width: 24px;
+      height: 120px;
+      background: black;
+      color: white;
+      position: absolute;
+      top: 0;
+      left: 28px;
+      z-index: 2;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      font-size: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .white-key.active {
+      background: #cce5ff;
+    }
+
+    .black-key.active {
+      background: #555;
+    }
+
+    #chordNotes {
+      margin-top: 10px;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="controls">
+  <button id="startAudio">Avvia Audio</button>
+
+  <label>Nota:
+    <select id="rootNote">
+      <option>C</option><option>Db</option><option>D</option><option>Eb</option>
+      <option>E</option><option>F</option><option>Gb</option><option>G</option>
+      <option>Ab</option><option>A</option><option>Bb</option><option>B</option>
+    </select>
+  </label>
+
+  <label>Tipo:
+    <select id="chordType">
+        <option value="maj">Maggiore</option>
+        <option value="min">Minore</option>
+        <option value="aug">Aumentato</option>
+        <option value="dim">Diminuito</option>
+        <option value="7">Dominante 7</option>
+        <option value="maj7">Maggiore 7</option>
+        <option value="min7">Minore 7</option>
+        <option value="6">Sesta</option>
+        <option value="min6">Minore 6</option>
+        <option value="5">Power chord (5)</option>
+        <option value="sus2">Sospeso 2</option>
+        <option value="sus4">Sospeso 4</option>
+    </select>
+  </label>
+
+  <button id="playChord">Suona Accordo</button>
+</div>
+
+<div class="piano" id="piano"></div>
+<div id="chordNotes"></div>
+
+<script>
+  const keyCodeToNote = {
+    "CapsLock":"G3","KeyQ": "Ab3", "KeyA": "A3", "KeyW": "Bb3", "KeyS": "B3", "KeyD": "C4",
+    "KeyR": "Db4", "KeyF": "D4", "KeyT": "Eb4", "KeyG": "E4", "KeyH": "F4",
+    "KeyU": "Gb4", "KeyJ": "G4", "KeyI": "Ab4", "KeyK": "A4", "KeyO": "Bb4",
+    "KeyL": "B4", "Semicolon": "C5", "BracketLeft": "Db5", "Quote": "D5",
+    "BracketRight": "Eb5", "Backslash": "E5"
+  };
+
+  const pianoContainer = document.getElementById("piano");
+
+  const samplerUrls = {};
+  Object.values(keyCodeToNote).forEach(note => {
+    samplerUrls[note] = `${note}.mp3`;
+  });
+
+  const sampler = new Tone.Sampler({
+    urls: samplerUrls,
+    release: 1.5,
+    baseUrl: "piano-mp3/"
+  }).toDestination();
+
+  let audioStarted = false;
+
+  document.getElementById("startAudio").addEventListener("click", async () => {
+    await Tone.start();
+    audioStarted = true;
+    document.getElementById("startAudio").style.display = "none";
+  });
+
+  function playNote(note) {
+    if (!audioStarted) return;
+    sampler.triggerAttackRelease(note, "2n");
+    const el = document.querySelector(`[data-note='${note}']`);
+    if (el) {
+      el.classList.add("active");
+      setTimeout(() => el.classList.remove("active"), 1000);
+    }
+  }
+
+  const semitoneMap = {
+    "C": 0, "Db": 1, "D": 2, "Eb": 3, "E": 4,
+    "F": 5, "Gb": 6, "G": 7, "Ab": 8, "A": 9,
+    "Bb": 10, "B": 11
+  };
+
+
+  // Ricava note da keyCodeToNote
+  const allNotes = Array.from(new Set(Object.values(keyCodeToNote))).sort((a, b) => {
+    const n = note => parseInt(note.slice(-1)) * 12 + semitoneMap[note.replace(/[0-9]/g, "")];
+    return n(a) - n(b);
+});
+
+  // Mappa dei diesis (neri)
+  const blackNoteMap = {
+    "C": "Db", "D": "Eb", "F": "Gb", "G": "Ab", "A": "Bb"
+  };
+
+  function getWhiteNotesOnly(notes) {
+    return notes.filter(n => !n.includes("b"));
+  }
+
+  function buildKeyboard() {
+    const octaves = {};
+
+    allNotes.forEach(note => {
+      const pitch = note.slice(0, -1);
+      const octave = note.slice(-1);
+      if (!octaves[octave]) octaves[octave] = [];
+      octaves[octave].push(note);
+    });
+
+    Object.keys(octaves).sort().forEach(octave => {
+      const whiteNotes = ["C", "D", "E", "F", "G", "A", "B"];
+      whiteNotes.forEach(note => {
+        const fullNote = note + octave;
+        if (!allNotes.includes(fullNote)) return;
+
+        const wrapper = document.createElement("div");
+        wrapper.className = "key-wrapper";
+
+        const whiteKey = document.createElement("div");
+        whiteKey.className = "white-key";
+        whiteKey.textContent = fullNote;
+        whiteKey.dataset.note = fullNote;
+        whiteKey.addEventListener("mousedown", () => playNote(fullNote));
+        wrapper.appendChild(whiteKey);
+
+        const blackName = blackNoteMap[note];
+        const blackNote = blackName ? blackName + octave : null;
+        if (blackNote && allNotes.includes(blackNote)) {
+          const blackKey = document.createElement("div");
+          blackKey.className = "black-key";
+          blackKey.textContent = blackNote;
+          blackKey.dataset.note = blackNote;
+          blackKey.addEventListener("mousedown", () => playNote(blackNote));
+          wrapper.appendChild(blackKey);
+        }
+
+        pianoContainer.appendChild(wrapper);
+      });
+    });
+  }
+
+  buildKeyboard();
+
+  // === Accordi ===
+  const chordIntervals = {
+    "maj": [0, 4, 7],
+    "min": [0, 3, 7],
+    "aug": [0, 4, 8],
+    "dim": [0, 3, 6],
+    "7": [0, 4, 7, 10],
+    "maj7": [0, 4, 7, 11],
+    "min7": [0, 3, 7, 10],
+    "6": [0, 4, 7, 9],
+    "min6": [0, 3, 7, 9],
+    "5": [0, 7],
+    "sus2": [0, 2, 7],
+    "sus4": [0, 5, 7]
+};
+
+
+  function noteToMidi(note) {
+    const name = note.replace(/[0-9]/g, "");
+    const octave = parseInt(note.slice(-1));
+    return 12 * (octave + 1) + semitoneMap[name];
+  }
+
+  function midiToNote(midi) {
+    const notes = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+    const name = notes[midi % 12];
+    const octave = Math.floor(midi / 12) - 1;
+    return name + octave;
+  }
+
+  document.getElementById("playChord").addEventListener("click", () => {
+    if (!audioStarted) return;
+    const root = document.getElementById("rootNote").value;
+    const type = document.getElementById("chordType").value;
+    const rootMidi = noteToMidi(root + "4");
+    const chord = chordIntervals[type].map(i => midiToNote(rootMidi + i));
+    chord.forEach(playNote);
+    document.getElementById("chordNotes").textContent = `Note: ${chord.join(", ")}`;
+  });
+
+  // Keyboard support
+  const activeKeys = new Set();
+  document.addEventListener("keydown", e => {
+    //console.log(e.code);
+    if (!audioStarted) return;
+    const note = keyCodeToNote[e.code];
+    if (note && !activeKeys.has(note)) {
+      activeKeys.add(note);
+      playNote(note);
+    }
+  });
+
+  document.addEventListener("keyup", e => {
+    const note = keyCodeToNote[e.code];
+    if (note) activeKeys.delete(note);
+  });
+</script>
+
+</body>
+</html>
