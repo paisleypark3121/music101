@@ -14,11 +14,77 @@
     }
 
     .controls {
-      margin-bottom: 20px;
-      display: flex;
-      gap: 10px;
-      align-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 20px;
+    font-size: 14px;
     }
+
+    .controls button {
+    min-width: 160px;       /* 🔁 dimensione minima uguale */
+    padding: 10px 16px;     /* 🔁 padding uniforme */
+    font-size: 16px;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-flex;     /* 🔁 per allineare icona + testo */
+    align-items: center;
+    justify-content: center;
+    gap: 8px;                 /* 🔁 spazio tra icona e testo */
+    transition: background 0.2s ease;
+    }
+
+    .controls button:hover {
+    background-color: #45a049;
+    }
+
+
+    .row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    }
+
+    .row-note select {
+    width: 60px;
+    }
+
+    select, input[type="range"] {
+    padding: 4px;
+    font-size: 14px;
+    }
+
+    button {
+    padding: 6px 12px;
+    font-size: 14px;
+    background-color: #4caf50;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+    }
+
+    button:hover {
+    background-color: #45a049;
+    }
+
+    .label-inline {
+    margin-left: 10px;
+    }
+
+
+    #scaleSpeedLabel {
+    margin-top: 8px;
+    display: inline-block;
+    font-weight: bold;
+    }
+
 
     #startAudio, #playChord {
       padding: 10px 20px;
@@ -83,40 +149,80 @@
       margin-top: 10px;
       font-size: 18px;
     }
+
+    #chordNotes span {
+        padding: 3px 6px;
+        border-radius: 4px;
+        margin: 2px;
+        font-weight: bold;
+        display: inline-block;
+        transition: background 0.2s ease;
+    }
+
+    #chordNotes span.highlight {
+        background-color: #ffeb3b;
+        color: #000;
+    }
+
+
   </style>
 </head>
 <body>
 
 <div class="controls">
-  <button id="startAudio">Avvia Audio</button>
 
-  <label>Nota:
+  <!-- Riga 1: Nota -->
+  <div class="row row-note">
+    <label for="rootNote">Nota:</label>
     <select id="rootNote">
       <option>C</option><option>Db</option><option>D</option><option>Eb</option>
       <option>E</option><option>F</option><option>Gb</option><option>G</option>
       <option>Ab</option><option>A</option><option>Bb</option><option>B</option>
     </select>
-  </label>
+  </div>
 
-  <label>Tipo:
+  <!-- Riga 2: Accordo -->
+  <div class="row row-chord">
+    <label for="chordType">Accordo:</label>
     <select id="chordType">
-        <option value="maj">Maggiore</option>
-        <option value="min">Minore</option>
-        <option value="aug">Aumentato</option>
-        <option value="dim">Diminuito</option>
-        <option value="7">Dominante 7</option>
-        <option value="maj7">Maggiore 7</option>
-        <option value="min7">Minore 7</option>
-        <option value="6">Sesta</option>
-        <option value="min6">Minore 6</option>
-        <option value="5">Power chord (5)</option>
-        <option value="sus2">Sospeso 2</option>
-        <option value="sus4">Sospeso 4</option>
+      <option value="maj">Maggiore</option>
+      <option value="min">Minore</option>
+      <option value="aug">Aumentato</option>
+      <option value="dim">Diminuito</option>
+      <option value="7">Dominante 7</option>
+      <option value="maj7">Maggiore 7</option>
+      <option value="min7">Minore 7</option>
+      <option value="6">Sesta</option>
+      <option value="min6">Minore 6</option>
+      <option value="5">Power chord (5)</option>
+      <option value="sus2">Sospeso 2</option>
+      <option value="sus4">Sospeso 4</option>
     </select>
-  </label>
+    <button id="playChord">🎵 Suona Accordo</button>
+  </div>
 
-  <button id="playChord">Suona Accordo</button>
+  <!-- Riga 3: Scala + Velocità + Pulsante -->
+  <div class="row row-scale">
+    <label for="scaleType">Scala:</label>
+    <select id="scaleType">
+      <option value="major">Maggiore</option>
+      <option value="minor">Minore</option>
+      <option value="harmonic">Minore Armonica</option>
+      <option value="melodic">Minore Melodica</option>
+      <option value="pentatonic">Pentatonica</option>
+      <option value="blues">Blues</option>
+    </select>
+
+    <label for="scaleSpeed" class="label-inline">Velocità:</label>
+    <input type="range" id="scaleSpeed" min="1" max="10" value="5" step="1">
+    <span id="scaleSpeedLabel">600 ms</span>
+
+    <button id="playScale">🎶 Suona Scala</button>
+  </div>
+
 </div>
+
+
 
 <div class="piano" id="piano"></div>
 <div id="chordNotes"></div>
@@ -150,28 +256,53 @@
 
     const sampler = new Tone.Sampler({
         urls: samplerUrls,
-        release: 1.5,
+        release: 0.3,
         baseUrl: "piano-mp3/"
     }).toDestination();
 
     let audioStarted = false;
 
-    document.getElementById("startAudio").addEventListener("click", async () => {
-        await Tone.start();
-        audioStarted = true;
-        document.getElementById("startAudio").style.display = "none";
-    });
+    let scaleTimeouts = [];
 
-    function playNote(note) {
-        if (!audioStarted) return;
-        sampler.triggerAttackRelease(note, "2n");
+    async function ensureAudioStarted() {
+        if (!audioStarted) {
+            await Tone.start();
+            audioStarted = true;
+            console.log("Audio attivato.");
+        }
+    }
+
+    // document.getElementById("startAudio").addEventListener("click", async () => {
+    //     await Tone.start();
+    //     audioStarted = true;
+    //     document.getElementById("startAudio").style.display = "none";
+    // });
+
+    async function playNote(note, duration = 300, show = false) {
+        await ensureAudioStarted();
+
+        sampler.triggerAttackRelease(note, duration / 1000);
+
         const el = document.querySelector(`[data-note='${note}']`);
         if (el) {
             el.classList.add("active");
-            setTimeout(() => el.classList.remove("active"), 1000);
+            setTimeout(() => el.classList.remove("active"), duration);
         }
-        document.getElementById("chordNotes").textContent = `Note: ${note}`;
+
+        const noteSpan = document.querySelector(`#chordNotes span[data-display-note='${note}']`);
+        if (noteSpan) {
+            noteSpan.classList.add("highlight");
+            setTimeout(() => noteSpan.classList.remove("highlight"), duration);
+        }
+
+        // 🎯 Quando è una singola nota suonata manualmente (show === true)
+        if (show) {
+            const display = document.getElementById("chordNotes");
+            display.innerHTML = "Nota: " + `<span data-display-note="${note}">${note}</span>`;
+        }
+
     }
+
 
     const semitoneMap = {
         "C": 0, "Db": 1, "D": 2, "Eb": 3, "E": 4,
@@ -219,7 +350,11 @@
             //whiteKey.textContent = fullNote;
             whiteKey.textContent = noteToKeyLabel[fullNote] || fullNote;  // ✅ mostra tasto
             whiteKey.dataset.note = fullNote;
-            whiteKey.addEventListener("mousedown", () => playNote(fullNote));
+            whiteKey.addEventListener("mousedown", () => {
+                scaleTimeouts.forEach(t => clearTimeout(t));
+                scaleTimeouts = [];
+                playNote(fullNote, 300, true);
+            });
             wrapper.appendChild(whiteKey);
 
             const blackName = blackNoteMap[note];
@@ -230,7 +365,11 @@
             //blackKey.textContent = blackNote;
             blackKey.textContent = noteToKeyLabel[blackNote] || blackNote;  // ✅
             blackKey.dataset.note = blackNote;
-            blackKey.addEventListener("mousedown", () => playNote(blackNote));
+            blackKey.addEventListener("mousedown", () => {
+                scaleTimeouts.forEach(t => clearTimeout(t));
+                scaleTimeouts = [];
+                playNote(blackNote, 300, true);
+            });
             wrapper.appendChild(blackKey);
             }
 
@@ -257,6 +396,14 @@
         "sus4": [0, 5, 7]
     };
 
+    const scaleFormulas = {
+        major:      [0, 2, 4, 5, 7, 9, 11],
+        minor:      [0, 2, 3, 5, 7, 8, 10],
+        harmonic:   [0, 2, 3, 5, 7, 8, 11],
+        melodic:    [0, 2, 3, 5, 7, 9, 11],
+        pentatonic: [0, 2, 4, 7, 9],
+        blues:      [0, 3, 5, 6, 7, 10]
+    };
 
     function noteToMidi(note) {
         const name = note.replace(/[0-9]/g, "");
@@ -271,15 +418,71 @@
         return name + octave;
     }
 
-    document.getElementById("playChord").addEventListener("click", () => {
-        if (!audioStarted) return;
+    document.getElementById("playChord").addEventListener("click", async () => {
+        await ensureAudioStarted();
+
+        scaleTimeouts.forEach(t => clearTimeout(t));
+        scaleTimeouts = [];
+
         const root = document.getElementById("rootNote").value;
         const type = document.getElementById("chordType").value;
         const rootMidi = noteToMidi(root + "4");
         const chord = chordIntervals[type].map(i => midiToNote(rootMidi + i));
-        chord.forEach(playNote);
-        document.getElementById("chordNotes").textContent = `Note: ${chord.join(", ")}`;
+
+        chord.forEach(note => playNote(note, 1000)); // Durata 1000ms
+
+        const display = document.getElementById("chordNotes");
+        display.innerHTML = "Accordo: " + chord.map(n => `<span data-display-note="${n}">${n}</span>`).join(" ");
+
     });
+
+
+    document.getElementById("scaleSpeed").addEventListener("input", (e) => {
+        const value = parseInt(e.target.value);
+        const label = document.getElementById("scaleSpeedLabel");
+        if (label) label.textContent = `Velocità: ${value} ms`;
+    });
+
+    
+
+    document.getElementById("playScale").addEventListener("click", async () => {
+        await ensureAudioStarted();
+
+        // 🧹 Interrompe eventuali scale precedenti
+        scaleTimeouts.forEach(t => clearTimeout(t));
+        scaleTimeouts = [];
+
+        const root = document.getElementById("rootNote").value;
+        const type = document.getElementById("scaleType").value;
+        const rootMidi = noteToMidi(root + "4");
+        const intervals = scaleFormulas[type];
+        const scaleNotes = intervals.map(i => midiToNote(rootMidi + i));
+
+        // Inverti lo slider: più alto → più veloce
+        const speedValue = parseInt(document.getElementById("scaleSpeed").value);
+        const delay = 1100 - (speedValue * 100); // es: 1 → 1000ms, 10 → 100ms
+
+        // Aggiorna etichetta
+        document.getElementById("scaleSpeedLabel").textContent = `Velocità: ${delay} ms`;
+
+        // Mostra subito la lista completa
+        const display = document.getElementById("chordNotes");
+        display.innerHTML = "Scala: " + scaleNotes.map(n => `<span data-display-note="${n}">${n}</span>`).join(" ");
+
+        // 🎵 Suona e colora una per una (e salva i timeout)
+        scaleNotes.forEach((note, index) => {
+            const t = setTimeout(() => {
+            playNote(note, delay);
+            }, index * delay);
+            scaleTimeouts.push(t); // ✅ salva timeout per eventuale cancellazione
+        });
+    });
+
+
+
+
+
+
 
     // Keyboard support
     const activeKeys = new Set();
@@ -288,8 +491,12 @@
         if (!audioStarted) return;
         const note = keyCodeToNote[e.code];
         if (note && !activeKeys.has(note)) {
-        activeKeys.add(note);
-        playNote(note);
+
+            scaleTimeouts.forEach(t => clearTimeout(t));
+            scaleTimeouts = [];
+            
+            activeKeys.add(note);
+            playNote(note, 300, true);
         }
     });
 
